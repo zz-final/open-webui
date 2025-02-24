@@ -766,7 +766,8 @@
 															editButton?.click();
 														}
 													}
-
+													
+													// 在容器中处理命令
 													if (commandsContainerElement) {
 														if (commandsContainerElement && e.key === 'ArrowUp') {
 															e.preventDefault();
@@ -797,7 +798,8 @@
 
 															commandOptionButton?.click();
 														}
-
+														
+														//回车触发提交
 														if (commandsContainerElement && e.key === 'Enter') {
 															e.preventDefault();
 

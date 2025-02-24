@@ -247,6 +247,7 @@
 						message.statusHistory = [data];
 					}
 				} else if (type === 'source' || type === 'citation') {
+					// 代码执行记录
 					if (data?.type === 'code_execution') {
 						// Code execution; update existing code execution by ID, or add new one.
 						if (!message?.code_executions) {
@@ -273,19 +274,25 @@
 						}
 					}
 				} else if (type === 'chat:completion') {
+					//聊天完成
 					chatCompletionEventHandler(data, message, event.chat_id);
 				} else if (type === 'chat:title') {
+					//更新聊天标题 更新列表
 					chatTitle.set(data);
 					currentChatPage.set(1);
 					await chats.set(await getChatList(localStorage.token, $currentChatPage));
 				} else if (type === 'chat:tags') {
+					// 获取当前聊天会话的详细信息。 更新所有标签 (allTags)。
 					chat = await getChatById(localStorage.token, $chatId);
 					allTags.set(await getAllTags(localStorage.token));
 				} else if (type === 'message') {
+					// 将新消息追加在内容中
 					message.content += data.content;
 				} else if (type === 'replace') {
+					// 替换消息内容
 					message.content = data.content;
 				} else if (type === 'action') {
+					// 如果消息类型是动作，则模拟点击continue-response-button 按钮
 					if (data.action === 'continue') {
 						const continueButton = document.getElementById('continue-response-button');
 
@@ -294,6 +301,7 @@
 						}
 					}
 				} else if (type === 'confirmation') {
+					//确认消息
 					eventCallback = cb;
 
 					eventConfirmationInput = false;
@@ -302,6 +310,7 @@
 					eventConfirmationTitle = data.title;
 					eventConfirmationMessage = data.message;
 				} else if (type === 'execute') {
+					//执行代码
 					eventCallback = cb;
 
 					try {
@@ -326,6 +335,7 @@
 					eventConfirmationInputPlaceholder = data.placeholder;
 					eventConfirmationInputValue = data?.value ?? '';
 				} else if (type === 'notification') {
+					//通知
 					const toastType = data?.type ?? 'info';
 					const toastContent = data?.content ?? '';
 
@@ -387,24 +397,34 @@
 	};
 
 	onMount(async () => {
+		// 打印日志，表明组件已挂载到 DOM 上
 		console.log('mounted');
+		// 给 window 对象添加一个 'message' 事件监听器，当接收到消息时会调用 onMessageHandler 函数
 		window.addEventListener('message', onMessageHandler);
+		// 如果 $socket 存在（不为 null 或 undefined），则为 'chat-events' 事件添加监听器，触发时调用 chatEventHandler 函数
 		$socket?.on('chat-events', chatEventHandler);
 
+		//是否存在聊天ID ？存在当前聊天
 		if (!$chatId) {
 			chatIdUnsubscriber = chatId.subscribe(async (value) => {
 				if (!value) {
+					//初始化创建一个新的聊天
 					await initNewChat();
 				}
 			});
 		} else {
+			//是否是临时会话
 			if ($temporaryChatEnabled) {
 				await goto('/');
 			}
 		}
 
+		// 检查本地存储中是否存在以 `chat-input-${chatIdProp}` 为键的数据
+		// 如果该键存在对应的值，说明之前已经存储过该聊天会话的输入信息，进入 try 块进行解析操作
+		// 简而言之 查看是否有历史聊天
 		if (localStorage.getItem(`chat-input-${chatIdProp}`)) {
 			try {
+				//尝试解析存储的json数据
 				const input = JSON.parse(localStorage.getItem(`chat-input-${chatIdProp}`));
 				prompt = input.prompt;
 				files = input.files;
@@ -420,10 +440,19 @@
 			}
 		}
 
+		/*订阅 showControls 这个变量的状态
+			showControls 应该是一个可被订阅的响应式存储对象，类似于一些状态管理库（如 Svelte 的存储）中的存储对象。
+			subscribe 方法用于注册一个回调函数，当 showControls 的值发生变化时，该回调函数会被调用，并且会将新的值作为参数传递给回调函数*/
 		showControls.subscribe(async (value) => {
+			/*
+			controlPane 可能是一个代表控制面板的 DOM 元素或组件实例。
+			$mobile 可能是一个布尔值，用于表示当前是否处于移动端环境。
+			只有当 controlPane 存在且不是移动端环境时，才会执行后续的控制面板显示或折叠操作。
+			*/
 			if (controlPane && !$mobile) {
 				try {
 					if (value) {
+						//如果showControls 是true 则打开控制面板 否则折叠
 						controlPaneComponent.openPane();
 					} else {
 						controlPane.collapse();
@@ -433,6 +462,9 @@
 				}
 			}
 
+			/*
+			这几个存储可能分别用于控制不同的覆盖层或面板的显示与隐藏，通过将它们的值设置为 false，可以隐藏这些相关的覆盖层或面板
+			*/
 			if (!value) {
 				showCallOverlay.set(false);
 				showOverview.set(false);
@@ -1217,6 +1249,7 @@
 	// Chat functions
 	//////////////////////////
 
+	//定义了一个异步函数 submitPrompt，用于处理用户提交的提示（prompt）并生成聊天信息
 	const submitPrompt = async (userPrompt, { _raw = false } = {}) => {
 		console.log('submitPrompt', userPrompt, $chatId);
 
@@ -1313,6 +1346,7 @@
 		const chatInput = document.getElementById('chat-input');
 		chatInput?.focus();
 
+		//保存当前模型
 		saveSessionSelectedModels();
 
 		await sendPrompt(history, userPrompt, userMessageId, { newChat: true });
@@ -1336,6 +1370,7 @@
 				: selectedModels;
 
 		// Create response messages for each selected model
+		// 为每个选中的模型生成响应信息id
 		for (const [_modelIdx, modelId] of selectedModelIds.entries()) {
 			const model = $models.filter((m) => m.id === modelId).at(0);
 
@@ -1351,7 +1386,7 @@
 					modelName: model.name ?? model.id,
 					modelIdx: modelIdx ? modelIdx : _modelIdx,
 					userContext: null,
-					timestamp: Math.floor(Date.now() / 1000) // Unix epoch
+					timestamp: Math.floor(Date.now() / 1000) // Unix epoch 时间戳
 				};
 
 				// Add message to history and Set currentId to messageId
@@ -1373,10 +1408,12 @@
 		history = history;
 
 		// Create new chat if newChat is true and first user message
+		// 如果需要创建新聊天 并且当前消息没有父消息 ，则调用initChatHandler创建新的聊天
 		if (newChat && _history.messages[_history.currentId].parentId === null) {
 			_chatId = await initChatHandler(_history);
 		}
 
+		//等待响应 保存历史
 		await tick();
 
 		_history = JSON.parse(JSON.stringify(history));
@@ -1384,6 +1421,7 @@
 		await saveChatHandler(_chatId, _history);
 
 		await Promise.all(
+			//遍历模型 遍历选中的模型，为每个模型发送提示
 			selectedModelIds.map(async (modelId, _modelIdx) => {
 				console.log('modelId', modelId);
 				const model = $models.filter((m) => m.id === modelId).at(0);
@@ -1443,10 +1481,12 @@
 			})
 		);
 
+		//更新聊天列表
 		currentChatPage.set(1);
 		chats.set(await getChatList(localStorage.token, $currentChatPage));
 	};
 
+	//实际发送的函数
 	const sendPromptSocket = async (_history, model, responseMessageId, _chatId) => {
 		const responseMessage = _history.messages[responseMessageId];
 		const userMessage = _history.messages[responseMessage.parentId];
@@ -1464,6 +1504,7 @@
 				array.findIndex((i) => JSON.stringify(i) === JSON.stringify(item)) === index
 		);
 
+		//触发开始聊天的事件【告诉前端
 		scrollToBottom();
 		eventTarget.dispatchEvent(
 			new CustomEvent('chat:start', {
@@ -1474,6 +1515,7 @@
 		);
 		await tick();
 
+		//构建消息列表
 		const stream =
 			model?.info?.params?.stream_response ??
 			$settings?.params?.stream_response ??
@@ -1530,6 +1572,7 @@
 			}))
 			.filter((message) => message?.role === 'user' || message?.content?.trim());
 
+		// 调用模型生成响应
 		const res = await generateOpenAIChatCompletion(
 			localStorage.token,
 			{
