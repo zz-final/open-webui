@@ -828,6 +828,9 @@ async def inspect_websocket(request: Request, call_next):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": "Invalid WebSocket upgrade request"},
             )
+    elif "/ws/socket.io" in request.url.path and  request.query_params.get("transport") == "polling":
+        # 轮询请求可以在这里添加特殊处理逻辑，如果有必要的话
+        pass
     return await call_next(request)
 
 
